@@ -19,6 +19,7 @@
       --disabled: #B3A898;
       --accent: #1F3A5F; /* alternative: #7A2E2A bordeaux, #2F4A3A verde, #1E1915 nero */
       --on-accent: #FFFDF9;
+      --error: #9B2C24;
       --serif: "Fraunces", Georgia, serif;
       --sans: "Inter", system-ui, -apple-system, sans-serif;
     }
@@ -45,10 +46,12 @@
     .card { width: 100%; max-width: 520px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: clamp(24px, 4vw, 40px); display: flex; flex-direction: column; gap: 20px; box-shadow: 0 1px 2px rgba(30,25,21,.04), 0 12px 32px rgba(30,25,21,.06); }
     .field { display: flex; flex-direction: column; gap: 8px; }
     .label { font-size: 14px; font-weight: 600; }
+    .step { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-right: 8px; border-radius: 999px; background: var(--ink); color: var(--on-accent); font-size: 12px; font-weight: 600; }
     .input, .picker { height: 52px; padding: 0 16px; border: 1.5px solid var(--field); border-radius: 12px; background: #fff; font: 400 16px var(--sans); color: var(--ink); width: 100%; }
     .input::placeholder { color: #8A7F74; }
     .input:focus, .picker:focus-visible { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(30,25,21,.12); }
     .picker { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; text-align: left; }
+    .picker:disabled { background: var(--bg); color: var(--disabled); border-style: dashed; }
     .picker-left { display: flex; align-items: center; gap: 10px; }
     .picker[aria-expanded="true"] .chev { transform: rotate(180deg); }
     .chev { transition: transform .15s; }
@@ -72,11 +75,17 @@
     .day[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
     .sep { height: 1px; background: var(--line); }
     .slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .slots[hidden] { display: none; }
     .slot { height: 44px; border-radius: 10px; border: 1.5px solid var(--field); background: #fff; color: var(--ink); font: 500 15px var(--sans); cursor: pointer; }
     .slot:hover:not(:disabled) { border-color: var(--ink); }
-    .slot:disabled { border-style: dashed; border-color: var(--line); color: var(--disabled); background: transparent; font-weight: 400; }
     .slot[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
-    .note { margin: 0; font-size: 14px; color: var(--muted); }
+    .note { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
+    .note.error { color: var(--error); }
+    .note[hidden] { display: none; }
+    .retry { margin-top: 8px; min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--field); background: transparent; color: var(--ink); font: 500 14px var(--sans); cursor: pointer; }
+    .retry[hidden] { display: none; }
+    .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; border: 2px solid var(--field); border-top-color: var(--ink); border-radius: 999px; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .btn-dark, .btn-primary { border: none; border-radius: 12px; font-weight: 600; cursor: pointer; color: var(--on-accent); }
     .btn-dark { height: 48px; background: var(--ink); font-size: 15px; }
@@ -84,7 +93,7 @@
     .btn-dark:disabled, .btn-primary:disabled { opacity: .45; }
     .btn-ghost { min-height: 48px; padding: 0 20px; border-radius: 12px; border: 1px solid var(--field); background: transparent; color: var(--ink); font: 500 15px var(--sans); cursor: pointer; }
     .hint { margin: -6px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); text-align: center; }
-    .hint.error { color: #9B2C24; }
+    .hint.error { color: var(--error); }
 
     /* Confirmation */
     .done { align-items: center; text-align: center; gap: 16px; }
@@ -92,6 +101,8 @@
     .done-mark { width: 56px; height: 56px; border-radius: 999px; background: var(--accent); color: var(--on-accent); display: flex; align-items: center; justify-content: center; }
     .done h2 { margin: 0; font-family: var(--serif); font-weight: 500; font-size: 28px; }
     .done p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--muted); }
+    .done .test-note { font-size: 13px; color: var(--error); }
+    .done .test-note[hidden] { display: none; }
     .summary { width: 100%; border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 15px; }
     .summary div { display: flex; justify-content: space-between; gap: 12px; }
     .summary dt { color: var(--muted); }
@@ -127,30 +138,25 @@
     <div class="hero">
       <span class="eyebrow">Taglio · Barba · Rifinitura</span>
       <h1>Il barbiere viene da te.</h1>
-      <p class="lead">Lascia i tuoi dati, scegli giorno e ora: arriviamo a casa tua con tutto il necessario.</p>
+      <p class="lead">Dicci dove ti trovi, scegli tra gli orari davvero disponibili nella tua zona e lascia i tuoi contatti: arriviamo a casa tua con tutto il necessario.</p>
     </div>
 
     <!-- FORM -->
     <form id="booking" class="card" novalidate aria-label="Prenota un taglio">
+
+      <!-- 1. Indirizzo: serve per calcolare gli orari (Workflow 1) -->
       <div class="field">
-        <label class="label" for="f-name">Nome e cognome</label>
-        <input class="input" id="f-name" name="nome" type="text" autocomplete="name" placeholder="Mario Rossi" required>
-      </div>
-      <div class="field">
-        <label class="label" for="f-phone">Numero di telefono</label>
-        <input class="input" id="f-phone" name="telefono" type="tel" inputmode="tel" autocomplete="tel" placeholder="+39 333 123 4567" required>
-      </div>
-      <div class="field">
-        <label class="label" for="f-addr">Indirizzo del taglio</label>
+        <label class="label" for="f-addr"><span class="step">1</span>Indirizzo del taglio</label>
         <input class="input" id="f-addr" name="indirizzo" type="text" autocomplete="street-address" placeholder="Via Roma 10, Vicenza" required>
       </div>
 
+      <!-- 2. Giorno + orario: gli orari arrivano da n8n -->
       <div class="field">
-        <span class="label" id="f-when">Data e ora</span>
-        <button type="button" class="picker" id="picker" aria-expanded="false" aria-controls="cal" aria-labelledby="f-when picker-val">
+        <span class="label" id="f-when"><span class="step">2</span>Data e ora</span>
+        <button type="button" class="picker" id="picker" aria-expanded="false" aria-controls="cal" aria-labelledby="f-when picker-val" disabled>
           <span class="picker-left">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-            <span id="picker-val">Scegli giorno e ora</span>
+            <span id="picker-val">Inserisci prima l’indirizzo</span>
           </span>
           <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </button>
@@ -171,12 +177,23 @@
           <div class="grid7" id="days"></div>
           <div class="sep"></div>
           <div class="field">
-            <span class="label">Orario</span>
-            <p class="note" id="slots-note">Scegli prima un giorno per vedere gli orari.</p>
+            <span class="label">Orari disponibili</span>
+            <p class="note" id="slots-note" aria-live="polite">Scegli un giorno per vedere gli orari disponibili.</p>
+            <button type="button" class="retry" id="retry" hidden>Riprova</button>
             <div class="slots" id="slots" hidden></div>
           </div>
           <button type="button" class="btn-dark" id="cal-ok" disabled>Conferma data e ora</button>
         </div>
+      </div>
+
+      <!-- 3. Contatti: servono per la prenotazione (Workflow 2) -->
+      <div class="field">
+        <label class="label" for="f-name"><span class="step">3</span>Nome e cognome</label>
+        <input class="input" id="f-name" name="nome" type="text" autocomplete="name" placeholder="Mario Rossi" required>
+      </div>
+      <div class="field">
+        <label class="label" for="f-phone">Numero di telefono</label>
+        <input class="input" id="f-phone" name="telefono" type="tel" inputmode="tel" autocomplete="tel" placeholder="+39 333 123 4567" required>
       </div>
 
       <button type="submit" class="btn-primary" id="submit" disabled>Prenota il taglio</button>
@@ -194,6 +211,7 @@
         <div><dt>Quando</dt><dd id="sum-when"></dd></div>
         <div><dt>Dove</dt><dd id="sum-where"></dd></div>
       </dl>
+      <p class="test-note" id="test-note" hidden>Modalità prova: la prenotazione non è stata inviata (Workflow 2 non ancora collegato).</p>
       <button type="button" class="btn-ghost" id="again">Nuova prenotazione</button>
     </section>
 
@@ -212,11 +230,18 @@
 
 <script>
 /* ================= CONFIGURAZIONE ================= */
-// URL del webhook n8n (nodo Webhook, metodo POST). Lascialo vuoto per la sola anteprima.
-const WEBHOOK_URL = 'https://giodet.app.n8n.cloud/webhook-test/d37947f5-f012-4bf2-9b9e-f5a33f5feba6';
-// Orari prenotabili e giorni di chiusura (0 = domenica, 1 = lunedì, ...)
-const TIMES = ['09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00'];
-const CLOSED_WEEKDAYS = [0];
+// Workflow 1 "Che orari ci sono?" – nodo Webhook in n8n con metodo GET e path "disponibilita".
+// In test usa /webhook-test/ (premi "Listen for test event" prima di ogni prova);
+// quando il workflow è pubblicato sostituisci con /webhook/.
+const DISPONIBILITA_URL = 'https://giodet.app.n8n.cloud/webhook-test/disponibilita';
+
+// Workflow 2 "Prenoto" – nodo Webhook POST. Vuoto = modalità prova (non invia nulla).
+const PRENOTA_URL = '';
+
+// Solo per l'interfaccia: n8n resta l'unico a decidere gli orari validi.
+// Tienili allineati con il nodo Config del Workflow 1.
+const CLOSED_WEEKDAYS = [0];   // 0 = domenica, 1 = lunedì, ...
+const MAX_DAYS_AHEAD = 30;     // fino a quanti giorni nel futuro si può prenotare
 /* ================================================== */
 
 const MONTHS = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
@@ -229,21 +254,60 @@ const fName = $('f-name'), fPhone = $('f-phone'), fAddr = $('f-addr');
 
 const now = new Date();
 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-const state = { vy: today.getFullYear(), vm: today.getMonth(), date: null, time: null };
+const lastDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + MAX_DAYS_AHEAD);
+
+// date = giorno scelto, slot = {inizio, fine} scelto, slots = lista ricevuta da n8n
+const state = { vy: today.getFullYear(), vm: today.getMonth(), date: null, slot: null, slots: null, loading: false, error: '' };
+const cache = new Map();   // evita di richiamare n8n per lo stesso giorno + indirizzo
+let requestId = 0;
 
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const sameDay = (a, b) => a && b && a.getTime() === b.getTime();
+const address = () => fAddr.value.trim();
 
 function slotLabel() {
   if (!state.date) return '';
   const d = state.date;
-  return `${DSHORT[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}` + (state.time ? ` · ${state.time}` : '');
+  return `${DSHORT[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}` + (state.slot ? ` · ${state.slot.inizio}` : '');
 }
 
+/* ---------- Chiamata al Workflow 1 ---------- */
+async function loadSlots() {
+  if (!state.date) return;
+  const key = `${isoDate(state.date)}|${address().toLowerCase()}`;
+  if (cache.has(key)) { state.slots = cache.get(key); state.error = ''; renderCalendar(); return; }
+
+  const myId = ++requestId;
+  state.loading = true; state.error = ''; state.slots = null;
+  renderCalendar();
+
+  try {
+    if (!DISPONIBILITA_URL) throw new Error('Prenotazioni online non ancora attive. Chiamaci.');
+    const params = new URLSearchParams({ data: isoDate(state.date), indirizzo: address() });
+    const res = await fetch(`${DISPONIBILITA_URL}?${params}`);
+    let json;
+    try { json = await res.json(); } catch { throw new Error('Risposta non valida dal server.'); }
+    if (!res.ok) throw new Error(json.errore || `Errore del server (${res.status}).`);
+    const slots = Array.isArray(json.slot) ? json.slot.filter((s) => s && s.inizio) : [];
+    if (myId !== requestId) return;          // nel frattempo è stato scelto un altro giorno
+    cache.set(key, slots);
+    state.slots = slots;
+  } catch (err) {
+    if (myId !== requestId) return;
+    state.error = err instanceof TypeError
+      ? 'Impossibile contattare il server. Controlla la connessione e riprova.'
+      : err.message;
+  } finally {
+    if (myId === requestId) { state.loading = false; renderCalendar(); }
+  }
+}
+
+/* ---------- Calendario e orari ---------- */
 function renderCalendar() {
   $('month').textContent = `${MONTHS[state.vm]} ${state.vy}`;
   $('prev').disabled = state.vy === today.getFullYear() && state.vm === today.getMonth();
+  $('next').disabled = state.vy > lastDay.getFullYear() || (state.vy === lastDay.getFullYear() && state.vm >= lastDay.getMonth());
 
   const days = $('days');
   days.innerHTML = '';
@@ -256,46 +320,69 @@ function renderCalendar() {
     b.type = 'button';
     b.className = 'day';
     b.textContent = d;
-    const off = dt < today || CLOSED_WEEKDAYS.includes(dt.getDay());
+    const off = dt < today || dt > lastDay || CLOSED_WEEKDAYS.includes(dt.getDay());
     b.disabled = off;
     b.setAttribute('aria-label', `${DAYS[dt.getDay()]} ${d} ${MONTHS[state.vm]}${off ? ', non disponibile' : ''}`);
     b.setAttribute('aria-pressed', sameDay(dt, state.date) ? 'true' : 'false');
-    b.addEventListener('click', () => { state.date = dt; state.time = null; render(); });
+    b.addEventListener('click', () => {
+      if (sameDay(dt, state.date)) return;
+      state.date = dt; state.slot = null;
+      render();
+      loadSlots();
+    });
     days.appendChild(b);
   }
 
-  const slots = $('slots');
+  const note = $('slots-note'), slots = $('slots'), retry = $('retry');
   slots.innerHTML = '';
-  slots.hidden = !state.date;
-  $('slots-note').hidden = !!state.date;
-  if (state.date) {
-    const isToday = sameDay(state.date, today);
-    TIMES.forEach((t) => {
+  note.classList.remove('error');
+  retry.hidden = true;
+  slots.hidden = true;
+  note.hidden = false;
+
+  if (!state.date) {
+    note.textContent = 'Scegli un giorno per vedere gli orari disponibili.';
+  } else if (state.loading) {
+    note.innerHTML = '<span class="spinner" aria-hidden="true"></span>Cerco gli orari disponibili nella tua zona…';
+  } else if (state.error) {
+    note.textContent = state.error;
+    note.classList.add('error');
+    retry.hidden = false;
+  } else if (state.slots && state.slots.length === 0) {
+    note.textContent = 'Nessun orario disponibile in questo giorno. Prova un altro giorno.';
+  } else if (state.slots) {
+    note.hidden = true;
+    slots.hidden = false;
+    state.slots.forEach((s) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'slot';
-      b.textContent = t;
-      b.disabled = isToday && parseInt(t, 10) <= new Date().getHours();
-      b.setAttribute('aria-pressed', state.time === t ? 'true' : 'false');
-      b.addEventListener('click', () => { state.time = t; render(); });
+      b.textContent = s.inizio;
+      b.setAttribute('aria-label', `dalle ${s.inizio}${s.fine ? ' alle ' + s.fine : ''}`);
+      b.setAttribute('aria-pressed', state.slot && state.slot.inizio === s.inizio ? 'true' : 'false');
+      b.addEventListener('click', () => { state.slot = s; render(); });
       slots.appendChild(b);
     });
   }
-  $('cal-ok').disabled = !(state.date && state.time);
+  $('cal-ok').disabled = !(state.date && state.slot);
 }
 
+/* ---------- Stato generale del modulo ---------- */
 function missingFields() {
   const m = [];
+  if (!address()) m.push('indirizzo');
+  if (!state.date || !state.slot) m.push('data e ora');
   if (!fName.value.trim()) m.push('nome');
   if (!fPhone.value.trim()) m.push('telefono');
-  if (!fAddr.value.trim()) m.push('indirizzo');
-  if (!state.date || !state.time) m.push('data e ora');
   return m;
 }
 
 function render() {
-  if (state.date) $('picker-val').textContent = state.time ? slotLabel() : `${slotLabel()} · scegli l’ora`;
-  else $('picker-val').textContent = 'Scegli giorno e ora';
+  picker.disabled = !address();
+  if (!address()) $('picker-val').textContent = 'Inserisci prima l’indirizzo';
+  else if (!state.date) $('picker-val').textContent = 'Scegli giorno e ora';
+  else $('picker-val').textContent = state.slot ? slotLabel() : `${slotLabel()} · scegli l’ora`;
+
   if (!cal.hidden) renderCalendar();
   const m = missingFields();
   $('submit').disabled = m.length > 0;
@@ -313,41 +400,57 @@ function setCal(open) {
   }
 }
 
+// Se cambia l'indirizzo, gli orari calcolati non valgono più: si riparte dalla scelta del giorno.
+fAddr.addEventListener('input', () => {
+  if (state.date) {
+    requestId++;
+    state.date = null; state.slot = null; state.slots = null; state.loading = false; state.error = '';
+  }
+  if (!address()) setCal(false);
+  render();
+});
+
 picker.addEventListener('click', () => setCal(cal.hidden));
 $('cal-ok').addEventListener('click', () => { setCal(false); picker.focus(); });
+$('retry').addEventListener('click', () => loadSlots());
 $('prev').addEventListener('click', () => { if (--state.vm < 0) { state.vm = 11; state.vy--; } renderCalendar(); });
 $('next').addEventListener('click', () => { if (++state.vm > 11) { state.vm = 0; state.vy++; } renderCalendar(); });
-[fName, fPhone, fAddr].forEach((el) => el.addEventListener('input', render));
+[fName, fPhone].forEach((el) => el.addEventListener('input', render));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !cal.hidden) { setCal(false); picker.focus(); } });
 
+/* ---------- Invio della prenotazione (Workflow 2) ---------- */
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (missingFields().length) return;
   const payload = {
     nome: fName.value.trim(),
     telefono: fPhone.value.trim(),
-    indirizzo: fAddr.value.trim(),
-    data: isoDate(state.date),   // es. 2026-11-14
-    ora: state.time,             // es. 15:00
+    indirizzo: address(),
+    data: isoDate(state.date),        // es. 2026-11-14
+    ora_inizio: state.slot.inizio,    // es. 15:00
+    ora_fine: state.slot.fine || '',  // es. 15:30
     inviato_il: new Date().toISOString()
   };
   const btn = $('submit');
   btn.disabled = true;
   btn.textContent = 'Invio in corso…';
   try {
-    if (WEBHOOK_URL) {
-      const res = await fetch(WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (PRENOTA_URL) {
+      const res = await fetch(PRENOTA_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      let json = {};
+      try { json = await res.json(); } catch { /* risposta senza JSON */ }
+      if (!res.ok) throw new Error(json.errore || 'Invio non riuscito. Riprova o chiamaci.');
     }
     $('done-text').textContent = `Grazie ${payload.nome}, ti confermiamo l’appuntamento al ${payload.telefono}.`;
     $('sum-when').textContent = slotLabel();
     $('sum-where').textContent = payload.indirizzo;
+    $('test-note').hidden = !!PRENOTA_URL;
     form.hidden = true;
     $('done').hidden = false;
   } catch (err) {
     const hint = $('hint');
     hint.classList.add('error');
-    hint.textContent = 'Invio non riuscito. Riprova o chiamaci.';
+    hint.textContent = err.message;
     btn.disabled = false;
   } finally {
     btn.textContent = 'Prenota il taglio';
@@ -356,13 +459,13 @@ form.addEventListener('submit', async (e) => {
 
 $('again').addEventListener('click', () => {
   form.reset();
-  state.date = null; state.time = null;
-  state.vy = today.getFullYear(); state.vm = today.getMonth();
+  requestId++;
+  Object.assign(state, { date: null, slot: null, slots: null, loading: false, error: '', vy: today.getFullYear(), vm: today.getMonth() });
   setCal(false);
   $('done').hidden = true;
   form.hidden = false;
   render();
-  fName.focus();
+  fAddr.focus();
 });
 
 render();
