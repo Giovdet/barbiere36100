@@ -1,1 +1,668 @@
 
+{
+  "name": "prima parte del workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "disponibilita",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "https://giovdet.github.io"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        32
+      ],
+      "id": "f31bb0aa-2dd0-49a1-a827-84b38ea13376",
+      "name": "Richiesta orari",
+      "webhookId": "d37947f5-f012-4bf2-9b9e-f5a33f5feba6"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "8c4ba7bf-e6ab-4e01-b8a2-4bc1f7e1c24b",
+              "leftValue": "={{ $json.query.indirizzo }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "1a5ae897-8e6f-4131-9b35-1c1981ee14d2",
+              "leftValue": "={{ $json.query.data }}",
+              "rightValue": "={{ $json.query.indirizzo }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "91f76d60-923e-4dab-8854-ee8126f34a57",
+              "leftValue": "={{ DateTime.fromISO($json.query.data) >= $now.startOf('day') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "280d339d-534a-42d3-b63d-26213b1932d4",
+              "leftValue": "={{ DateTime.fromISO($json.query.data) <= $now.plus({ days: $json.max_giorni }) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "1af70f5d-99c0-4f75-bbfa-b021069bf8bd",
+              "leftValue": "={{ !$json.giorni_chiusi.includes(DateTime.fromISO($json.query.data).weekday) }}\n",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        208,
+        32
+      ],
+      "id": "c2b7c517-9504-4abb-b069-f900a225f7bf",
+      "name": "Validazione"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"errore\": \"Dati mancanti o non validi\" }",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        432,
+        64
+      ],
+      "id": "f88c3339-eaaf-441b-90b4-ed74f11301dd",
+      "name": "Errore dati non validi"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1920,
+        -352
+      ],
+      "id": "51cfbb56-73fa-4c4c-a917-aab7eff2075f",
+      "name": "Risposta slot"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3a6041ff-5209-4f92-b8c9-a41acc278081",
+              "name": "ora_apertura",
+              "value": "09:00",
+              "type": "string"
+            },
+            {
+              "id": "f2d5ea3d-8d4e-489a-b6cb-9295308e09fa",
+              "name": "ora_chiusura",
+              "value": "19:00",
+              "type": "string"
+            },
+            {
+              "id": "cce491fa-bffc-4a68-b6de-108df6d0f39c",
+              "name": "pausa_inizio",
+              "value": "13:00",
+              "type": "string"
+            },
+            {
+              "id": "316e80ac-763a-45ca-8b7e-cb2082e83b58",
+              "name": "pausa_fine",
+              "value": "14:00",
+              "type": "string"
+            },
+            {
+              "id": "c666bc21-1590-40b1-9869-38baf3188fdb",
+              "name": "durata_min",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "bd04a85a-c0af-4287-8b8c-becd4710b00d",
+              "name": "margine_min",
+              "value": "10",
+              "type": "number"
+            },
+            {
+              "id": "a05d8ca2-b796-4704-9506-e0dd8045ac3a",
+              "name": "passo_min",
+              "value": 15,
+              "type": "number"
+            },
+            {
+              "id": "8992dc31-20de-4d3c-a1c6-f1ae2b80aa5d",
+              "name": "giorni_chiusi",
+              "value": "[7]",
+              "type": "array"
+            },
+            {
+              "id": "ee35b1c2-c979-4449-8414-7486376214c7",
+              "name": "max_giorni",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "b77019ea-8ec7-4a4c-aabe-ab48ee86f134",
+              "name": "base_lat",
+              "value": "45.5455",
+              "type": "number"
+            },
+            {
+              "id": "5e800b72-24f0-4bad-a236-a16d4924d201",
+              "name": "base_lon",
+              "value": 11.5354,
+              "type": "number"
+            },
+            {
+              "id": "299a4d54-bf1e-497f-a0a1-d2d9bc9e21e1",
+              "name": "max_viaggio_min",
+              "value": "30",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -16,
+        32
+      ],
+      "id": "c82bebc1-441c-44b7-b207-7fb44eff8b09",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "url": "https://api.openrouteservice.org/geocode/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.query.indirizzo }}"
+            },
+            {
+              "name": "boundary.country",
+              "value": "IT"
+            },
+            {
+              "name": "focus.point.lat",
+              "value": "={{ $json.base_lat }}"
+            },
+            {
+              "name": "focus.point.lon",
+              "value": "={{ $json.base_lon}}"
+            },
+            {
+              "name": "size",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        432,
+        -160
+      ],
+      "id": "93dd64af-dfb0-4fa4-ba84-2ae01abc9bcc",
+      "name": "Geocoding",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pWEhroXWiw0xhZ0t",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "781258a9-0216-41cb-96bb-3ec73cd6b492",
+              "leftValue": "={{ $json.features.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "cb326db2-7296-4748-b90a-b332e8cc0fbf",
+              "leftValue": "={{ ['address', 'street'].includes($json.features[0]?.properties.layer) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        624,
+        -160
+      ],
+      "id": "3ed584a8-b5c9-4e94-9026-712a25c6da08",
+      "name": "Indirizzo trovato?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"errore\": \"Indirizzo non riconosciuto: controlla via e numero civico\" }",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        800,
+        -64
+      ],
+      "id": "0ec6759e-fc89-4201-a005-3aa87c35f51c",
+      "name": "Errore indirizzo"
+    },
+    {
+      "parameters": {
+        "url": "https://api.openrouteservice.org/v2/directions/driving-car",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "start",
+              "value": "={{ $('Config').item.json.base_lon }},{{ $('Config').item.json.base_lat }}"
+            },
+            {
+              "name": "end",
+              "value": "={{ $json.features[0].geometry.coordinates[0] }},{{ $json.features[0].geometry.coordinates[1] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        800,
+        -224
+      ],
+      "id": "9cc3d519-e74b-402d-9f77-e8acdfd765d5",
+      "name": "Tragitto",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pWEhroXWiw0xhZ0t",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "1bd5de10-88d9-4cdd-9bd9-79c21cd38ac0",
+              "leftValue": "={{ JSON.parse($json.data).features[0].properties.summary.duration / 60 }}",
+              "rightValue": "={{ $('Config').item.json.max_viaggio_min }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1024,
+        -224
+      ],
+      "id": "5693a792-403c-49fd-abcb-9071c5b7ec64",
+      "name": "Zona servita?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"errore\": \"Ci dispiace, la tua zona non è ancora servita\" }",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1232,
+        -32
+      ],
+      "id": "e7d5b370-2acf-4bf3-beee-9a4aba6ec8ee",
+      "name": "Errore zona"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "1b987767b38682bd7e4ce69d0e1e73b9b217c057edbc18af352edfb4e3f40ac7@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "Barber 36100"
+        },
+        "returnAll": true,
+        "timeMin": "={{ DateTime.fromISO($('Config').item.json.query.data, { zone: 'Europe/Rome' }).startOf('day').toISO() }}",
+        "timeMax": "={{ DateTime.fromISO($('Config').item.json.query.data, { zone: 'Europe/Rome' }).endOf('day').toISO() }}",
+        "options": {
+          "orderBy": "startTime",
+          "recurringEventHandling": "expand",
+          "timeZone": {
+            "__rl": true,
+            "value": "Europe/Rome",
+            "mode": "list",
+            "cachedResultName": "Europe/Rome"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.4,
+      "position": [
+        1200,
+        -352
+      ],
+      "id": "9e07db8a-0289-4629-95a5-9094eb9af820",
+      "name": "appuntamenti del giorno",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "sld9thhcmyZ8oCft",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Config').first().json;\nconst { eventi, giornataBloccata } = $('Prepara punti').first().json;\n\nlet risposta = $input.first().json;\nif (typeof risposta.data === 'string') risposta = JSON.parse(risposta.data); // stesso caso del Tragitto\nconst durate = risposta.durations; // secondi: durate[da][a]\n\nconst zona = 'Europe/Rome';\nconst giorno = DateTime.fromISO(cfg.query.data, { zone: zona });\nconst alle = (hhmm) => {\n  const [h, m] = hhmm.split(':').map(Number);\n  return giorno.set({ hour: h, minute: m, second: 0, millisecond: 0 });\n};\nconst viaggio = (da, a) => {\n  const s = durate?.[da]?.[a];\n  return s == null ? Infinity : Math.ceil(s / 60); // minuti; null = non raggiungibile\n};\n\nif (giornataBloccata) {\n  return [{ json: { data: cfg.query.data, slot: [] } }];\n}\n\nconst durata = Number(cfg.durata_min);\nconst margine = Number(cfg.margine_min);\nconst passo = Number(cfg.passo_min);\nconst preavviso = Number(cfg.preavviso_min ?? 120);\nconst apertura = alle(cfg.ora_apertura);\nconst chiusura = alle(cfg.ora_chiusura);\nconst primoOrario = DateTime.now().setZone(zona).plus({ minutes: preavviso });\n\n// Blocchi occupati: appuntamenti + pausa (la pausa non ha posizione → nessun tragitto)\nconst blocchi = eventi.map(e => ({\n  inizio: DateTime.fromISO(e.inizio, { zone: zona }),\n  fine: DateTime.fromISO(e.fine, { zone: zona }),\n  idx: e.idx,\n}));\nblocchi.push({ inizio: alle(cfg.pausa_inizio), fine: alle(cfg.pausa_fine), idx: null });\n\nconst slot = [];\nfor (let t = apertura; t.plus({ minutes: durata }) <= chiusura; t = t.plus({ minutes: passo })) {\n  const fine = t.plus({ minutes: durata });\n  if (t < primoOrario) continue;\n\n  const ok = blocchi.every(b => {\n    if (t < b.fine && fine > b.inizio) return false;   // si sovrappone a un blocco\n    if (b.idx === null) return true;                     // pausa: basta non sovrapporsi\n    if (b.fine <= t)                                     // blocco prima: arriva in tempo dal cliente nuovo?\n      return b.fine.plus({ minutes: viaggio(b.idx, 0) + margine }) <= t;\n    return fine.plus({ minutes: viaggio(0, b.idx) + margine }) <= b.inizio; // blocco dopo: arriva in tempo al successivo?\n  });\n\n  if (ok) slot.push({ inizio: t.toFormat('HH:mm'), fine: fine.toFormat('HH:mm') });\n}\n\nreturn [{ json: { data: cfg.query.data, slot } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        -352
+      ],
+      "id": "2383315a-b77b-4fd0-ac30-ca33c2728d3b",
+      "name": "calcolo slot"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openrouteservice.org/v2/matrix/driving-car",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ locations: $json.locations, metrics: ['duration'] }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1568,
+        -352
+      ],
+      "id": "9c3eed39-14af-49af-9b15-50d9f45e24bf",
+      "name": "matrice tempi",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pWEhroXWiw0xhZ0t",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Raccoglie gli eventi del giorno e prepara la lista dei punti per la matrice\nconst cfg = $('Config').first().json;\nconst cliente = $('Geocoding').first().json.features[0].geometry.coordinates; // [lon, lat]\nconst base = [Number(cfg.base_lon), Number(cfg.base_lat)];\n\nconst locations = [cliente, base]; // indice 0 = nuovo cliente, 1 = base del barbiere\nconst eventi = [];\nlet giornataBloccata = false;\n\nfor (const item of $input.all()) {\n  const ev = item.json;\n  if (!ev.start) continue;                      // item vuoto (giorno senza eventi)\n  if (ev.start.date && !ev.start.dateTime) {    // evento \"tutto il giorno\" (es. ferie)\n    giornataBloccata = true;\n    continue;\n  }\n  let idx = 1;                                  // senza coordinate → consideriamo la base\n  const m = (ev.description || '').match(/coords:\\s*(-?[\\d.]+)\\s*,\\s*(-?[\\d.]+)/);\n  if (m) {\n    locations.push([parseFloat(m[1]), parseFloat(m[2])]);\n    idx = locations.length - 1;\n  }\n  eventi.push({ titolo: ev.summary || '', inizio: ev.start.dateTime, fine: ev.end.dateTime, idx });\n}\n\nreturn [{ json: { locations, eventi, giornataBloccata } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        -352
+      ],
+      "id": "f8f112e0-6f47-476e-a490-6d8706c18c90",
+      "name": "Prepara punti"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Validazione",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Richiesta orari": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validazione": {
+      "main": [
+        [
+          {
+            "node": "Geocoding",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Errore dati non validi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Geocoding": {
+      "main": [
+        [
+          {
+            "node": "Indirizzo trovato?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Indirizzo trovato?": {
+      "main": [
+        [
+          {
+            "node": "Tragitto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Errore indirizzo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tragitto": {
+      "main": [
+        [
+          {
+            "node": "Zona servita?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zona servita?": {
+      "main": [
+        [
+          {
+            "node": "appuntamenti del giorno",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Errore zona",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risposta slot": {
+      "main": [
+        []
+      ]
+    },
+    "appuntamenti del giorno": {
+      "main": [
+        [
+          {
+            "node": "Prepara punti",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "calcolo slot": {
+      "main": [
+        [
+          {
+            "node": "Risposta slot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "matrice tempi": {
+      "main": [
+        [
+          {
+            "node": "calcolo slot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara punti": {
+      "main": [
+        [
+          {
+            "node": "matrice tempi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "e350fd70-3821-4619-8305-cc95574e6882",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "07d04d1d37bfd44f2fb877d1b81e0994670cfdd282291e9854bafef028e3b39d"
+  },
+  "nodeGroups": [],
+  "id": "PIULlC2duI6HXNO6",
+  "tags": []
+}
