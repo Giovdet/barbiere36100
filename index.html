@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <style>
     :root {
       --bg: #F5EFE6;
@@ -86,6 +87,11 @@
     .retry[hidden] { display: none; }
     .spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; border: 2px solid var(--field); border-top-color: var(--ink); border-radius: 999px; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Mappa posizione esatta */
+    .map { position: relative; z-index: 0; height: 280px; border-radius: 12px; border: 1.5px solid var(--field); overflow: hidden; background: #EAE3D8; }
+    .map[hidden] { display: none; }
+    .pos-hint.ok { color: #2F4A3A; }
 
     .btn-dark, .btn-primary { border: none; border-radius: 12px; font-weight: 600; cursor: pointer; color: var(--on-accent); }
     .btn-dark { height: 48px; background: var(--ink); font-size: 15px; }
@@ -186,9 +192,17 @@
         </div>
       </div>
 
-      <!-- 3. Contatti: servono per la prenotazione (Workflow 2) -->
+      <!-- 3. Posizione esatta: il cliente sposta il segnaposto sul portone -->
       <div class="field">
-        <label class="label" for="f-name"><span class="step">3</span>Nome e cognome</label>
+        <span class="label"><span class="step">3</span>Posizione esatta</span>
+        <p class="note" id="pos-note">Dopo aver scelto il giorno ti mostriamo la mappa per confermare il punto esatto.</p>
+        <div class="map" id="map" hidden role="application" aria-label="Mappa: sposta il segnaposto sul tuo portone"></div>
+        <p class="note pos-hint" id="pos-hint" aria-live="polite" hidden></p>
+      </div>
+
+      <!-- 4. Contatti: servono per la prenotazione (Workflow 2) -->
+      <div class="field">
+        <label class="label" for="f-name"><span class="step">4</span>Nome e cognome</label>
         <input class="input" id="f-name" name="nome" type="text" autocomplete="name" placeholder="Mario Rossi" required>
       </div>
       <div class="field">
@@ -228,6 +242,7 @@
   </footer>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 /* ================= CONFIGURAZIONE ================= */
 // Workflow 1 "Che orari ci sono?" – nodo Webhook in n8n con metodo GET e path "disponibilita".
@@ -242,6 +257,7 @@ const PRENOTA_URL = 'https://giodet.app.n8n.cloud/webhook-test/prenota';
 // Tienili allineati con il nodo Config del Workflow 1.
 const CLOSED_WEEKDAYS = [0];   // 0 = domenica, 1 = lunedì, ...
 const MAX_DAYS_AHEAD = 30;     // fino a quanti giorni nel futuro si può prenotare
+const MAX_PIN_METRI = 300;     // quanto può spostarsi il segnaposto dall'indirizzo trovato (uguale in n8n)
 /* ================================================== */
 
 const MONTHS = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
@@ -257,9 +273,11 @@ const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 const lastDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + MAX_DAYS_AHEAD);
 
 // date = giorno scelto, slot = {inizio, fine} scelto, slots = lista ricevuta da n8n
-const state = { vy: today.getFullYear(), vm: today.getMonth(), date: null, slot: null, slots: null, loading: false, error: '' };
+// cliente = posizione trovata da n8n per l'indirizzo, pin = posizione confermata sulla mappa
+const state = { vy: today.getFullYear(), vm: today.getMonth(), date: null, slot: null, slots: null, loading: false, error: '', cliente: null, pin: null };
 const cache = new Map();   // evita di richiamare n8n per lo stesso giorno + indirizzo
 let requestId = 0;
+let map = null, marker = null;
 
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -275,8 +293,14 @@ function slotLabel() {
 /* ---------- Chiamata al Workflow 1 ---------- */
 async function loadSlots() {
   if (!state.date) return;
-  const key = `${isoDate(state.date)}|${address().toLowerCase()}`;
-  if (cache.has(key)) { state.slots = cache.get(key); state.error = ''; renderCalendar(); return; }
+  const key = cacheKey();
+  if (cache.has(key)) {
+    const c = cache.get(key);
+    state.slots = c.slots; state.error = '';
+    setCliente(c.cliente);
+    renderCalendar();
+    return;
+  }
 
   const myId = ++requestId;
   state.loading = true; state.error = ''; state.slots = null;
@@ -291,8 +315,12 @@ async function loadSlots() {
     if (!res.ok) throw new Error(json.errore || `Errore del server (${res.status}).`);
     const slots = Array.isArray(json.slot) ? json.slot.filter((s) => s && s.inizio) : [];
     if (myId !== requestId) return;          // nel frattempo è stato scelto un altro giorno
-    cache.set(key, slots);
+    const cl = json.cliente;
+    const cliente = cl && Number.isFinite(Number(cl.lat)) && Number.isFinite(Number(cl.lon))
+      ? { lat: Number(cl.lat), lon: Number(cl.lon) } : null;
+    cache.set(key, { slots, cliente });
     state.slots = slots;
+    setCliente(cliente);
   } catch (err) {
     if (myId !== requestId) return;
     state.error = err instanceof TypeError
@@ -301,6 +329,80 @@ async function loadSlots() {
   } finally {
     if (myId === requestId) { state.loading = false; renderCalendar(); }
   }
+}
+
+const cacheKey = () => `${isoDate(state.date)}|${address().toLowerCase()}`;
+
+/* ---------- Mappa: posizione esatta ---------- */
+function distanzaMetri(a, b) {
+  const R = 6371000, rad = (x) => x * Math.PI / 180;
+  const dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// Riceve la posizione trovata da n8n; il segnaposto si riposiziona solo se cambia l'indirizzo
+function setCliente(cliente) {
+  const cambiato = !state.cliente || !cliente || distanzaMetri(state.cliente, cliente) > 1;
+  state.cliente = cliente;
+  if (cambiato) state.pin = cliente ? { lat: cliente.lat, lon: cliente.lon, spostato: false } : null;
+  updateMap();
+}
+
+function posHint(testo, tipo) {
+  const hint = $('pos-hint');
+  hint.hidden = false;
+  hint.textContent = testo;
+  hint.classList.toggle('error', tipo === 'error');
+  hint.classList.toggle('ok', tipo === 'ok');
+}
+
+function updateMap() {
+  const box = $('map'), note = $('pos-note');
+  const leafletOk = typeof L !== 'undefined';
+  if (!state.cliente || !leafletOk) {
+    box.hidden = true;
+    $('pos-hint').hidden = true;
+    note.hidden = false;
+    note.textContent = !leafletOk && state.cliente
+      ? 'Mappa non disponibile: useremo l’indirizzo inserito.'
+      : 'Dopo aver scelto il giorno ti mostriamo la mappa per confermare il punto esatto.';
+    return;
+  }
+  note.hidden = true;
+  box.hidden = false;
+  const punto = [state.pin.lat, state.pin.lon];
+  if (!map) {
+    map = L.map(box, { scrollWheelZoom: false, dragging: !L.Browser.mobile }).setView(punto, 18);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    marker = L.marker(punto, { draggable: true, autoPan: true, title: 'Il tuo ingresso' }).addTo(map);
+    marker.on('dragend', () => movePin(marker.getLatLng()));
+    map.on('click', (e) => movePin(e.latlng));
+  } else {
+    marker.setLatLng(punto);
+    map.setView(punto, 18);
+  }
+  setTimeout(() => map.invalidateSize(), 0);   // la mappa era nascosta: ricalcola le dimensioni
+  posHint(state.pin.spostato
+    ? 'Posizione confermata ✓ Il barbiere arriverà esattamente qui.'
+    : 'Trascina il segnaposto (o tocca la mappa) sul tuo portone o ingresso: così il barbiere ti trova subito.',
+    state.pin.spostato ? 'ok' : '');
+}
+
+function movePin(ll) {
+  const nuovo = { lat: ll.lat, lon: ll.lng };
+  if (distanzaMetri(state.cliente, nuovo) > MAX_PIN_METRI) {
+    marker.setLatLng([state.pin.lat, state.pin.lon]);
+    map.panTo([state.pin.lat, state.pin.lon]);
+    posHint(`Il punto è troppo lontano dall’indirizzo inserito (massimo ${MAX_PIN_METRI} m). Se l’indirizzo è sbagliato, correggilo al punto 1.`, 'error');
+    return;
+  }
+  state.pin = { ...nuovo, spostato: true };
+  marker.setLatLng([nuovo.lat, nuovo.lon]);
+  posHint('Posizione confermata ✓ Il barbiere arriverà esattamente qui.', 'ok');
 }
 
 /* ---------- Calendario e orari ---------- */
@@ -406,6 +508,7 @@ fAddr.addEventListener('input', () => {
     requestId++;
     state.date = null; state.slot = null; state.slots = null; state.loading = false; state.error = '';
   }
+  if (state.cliente) { state.cliente = null; state.pin = null; updateMap(); }
   if (!address()) setCal(false);
   render();
 });
@@ -429,6 +532,9 @@ form.addEventListener('submit', async (e) => {
     data: isoDate(state.date),        // es. 2026-11-14
     ora_inizio: state.slot.inizio,    // es. 15:00
     ora_fine: state.slot.fine || '',  // es. 15:30
+    lat: state.pin ? Number(state.pin.lat.toFixed(6)) : null,   // posizione confermata sulla mappa
+    lon: state.pin ? Number(state.pin.lon.toFixed(6)) : null,
+    posizione_spostata: !!(state.pin && state.pin.spostato),
     inviato_il: new Date().toISOString()
   };
   const btn = $('submit');
@@ -439,6 +545,14 @@ form.addEventListener('submit', async (e) => {
       const res = await fetch(PRENOTA_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       let json = {};
       try { json = await res.json(); } catch { /* risposta senza JSON */ }
+      if (res.status === 409) {
+        // Orario appena preso da un altro cliente: ricarica gli orari aggiornati di quel giorno
+        cache.delete(cacheKey());
+        state.slot = null;
+        setCal(true);
+        loadSlots();
+        render();
+      }
       if (!res.ok) throw new Error(json.errore || 'Invio non riuscito. Riprova o chiamaci.');
     }
     $('done-text').textContent = `Grazie ${payload.nome}, ti confermiamo l’appuntamento al ${payload.telefono}.`;
@@ -460,7 +574,8 @@ form.addEventListener('submit', async (e) => {
 $('again').addEventListener('click', () => {
   form.reset();
   requestId++;
-  Object.assign(state, { date: null, slot: null, slots: null, loading: false, error: '', vy: today.getFullYear(), vm: today.getMonth() });
+  Object.assign(state, { date: null, slot: null, slots: null, loading: false, error: '', cliente: null, pin: null, vy: today.getFullYear(), vm: today.getMonth() });
+  updateMap();
   setCal(false);
   $('done').hidden = true;
   form.hidden = false;
