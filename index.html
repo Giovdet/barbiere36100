@@ -100,6 +100,9 @@
     .btn-ghost { min-height: 48px; padding: 0 20px; border-radius: 12px; border: 1px solid var(--field); background: transparent; color: var(--ink); font: 500 15px var(--sans); cursor: pointer; }
     .hint { margin: -6px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); text-align: center; }
     .hint.error { color: var(--error); }
+    .consent { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--muted); cursor: pointer; }
+    .consent input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); cursor: pointer; }
+    .consent a, footer a { color: var(--ink); }
 
     /* Confirmation */
     .done { align-items: center; text-align: center; gap: 16px; }
@@ -210,6 +213,11 @@
         <input class="input" id="f-phone" name="telefono" type="tel" inputmode="tel" autocomplete="tel" placeholder="+39 333 123 4567" required>
       </div>
 
+      <label class="consent" for="f-privacy">
+        <input type="checkbox" id="f-privacy" name="privacy" required>
+        <span>Ho letto l’<a href="privacy.html" target="_blank" rel="noopener">informativa privacy</a> e accetto che i miei dati vengano usati per gestire l’appuntamento.</span>
+      </label>
+
       <button type="submit" class="btn-primary" id="submit" disabled>Prenota il taglio</button>
       <p class="hint" id="hint" aria-live="polite"></p>
     </form>
@@ -238,7 +246,7 @@
 
   <footer>
     <span>© 2026 Barber36100</span>
-    <span>Vicenza, 36100 · [P.IVA]</span>
+    <span>Vicenza, 36100 · [P.IVA] · <a href="privacy.html">Privacy</a></span>
   </footer>
 </div>
 
@@ -476,6 +484,7 @@ function missingFields() {
   if (!state.date || !state.slot) m.push('data e ora');
   if (!fName.value.trim()) m.push('nome');
   if (!fPhone.value.trim()) m.push('telefono');
+  if (!$('f-privacy').checked) m.push('conferma dell’informativa privacy');
   return m;
 }
 
@@ -519,6 +528,7 @@ $('retry').addEventListener('click', () => loadSlots());
 $('prev').addEventListener('click', () => { if (--state.vm < 0) { state.vm = 11; state.vy--; } renderCalendar(); });
 $('next').addEventListener('click', () => { if (++state.vm > 11) { state.vm = 0; state.vy++; } renderCalendar(); });
 [fName, fPhone].forEach((el) => el.addEventListener('input', render));
+$('f-privacy').addEventListener('change', render);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !cal.hidden) { setCal(false); picker.focus(); } });
 
 /* ---------- Invio della prenotazione (Workflow 2) ---------- */
@@ -535,6 +545,7 @@ form.addEventListener('submit', async (e) => {
     lat: state.pin ? Number(state.pin.lat.toFixed(6)) : null,   // posizione confermata sulla mappa
     lon: state.pin ? Number(state.pin.lon.toFixed(6)) : null,
     posizione_spostata: !!(state.pin && state.pin.spostato),
+    privacy_accettata: $('f-privacy').checked,   // presa visione dell'informativa
     inviato_il: new Date().toISOString()
   };
   const btn = $('submit');
