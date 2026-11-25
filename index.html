@@ -118,6 +118,14 @@
     .summary div { display: flex; justify-content: space-between; gap: 12px; }
     .summary dt { color: var(--muted); }
     .summary dd { margin: 0; font-weight: 600; text-align: right; }
+    .add-cal { width: 100%; border-top: 1px solid var(--line); padding-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .add-cal[hidden] { display: none; }
+    .add-cal-title { margin: 0; font-size: 14px; color: var(--muted); }
+    .add-cal-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .btn-cal { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--field); background: #fff; color: var(--ink); font: 600 14px var(--sans); text-decoration: none; cursor: pointer; }
+    .btn-cal:hover { border-color: var(--ink); }
+    .btn-cal.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    @media (max-width: 380px) { .add-cal-btns { grid-template-columns: 1fr; } }
 
     .perks { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 28px; font-size: 14px; color: var(--muted); }
     .perks li { display: flex; align-items: center; gap: 8px; }
@@ -233,13 +241,26 @@
         <div><dt>Quando</dt><dd id="sum-when"></dd></div>
         <div><dt>Dove</dt><dd id="sum-where"></dd></div>
       </dl>
+      <div class="add-cal" id="add-cal" hidden>
+        <p class="add-cal-title">Salvalo nel tuo calendario così non te lo dimentichi.</p>
+        <div class="add-cal-btns">
+          <a class="btn-cal primary" id="cal-google" href="#" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>
+            Google Calendar
+          </a>
+          <button type="button" class="btn-cal" id="cal-ics">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+            iPhone / Outlook
+          </button>
+        </div>
+      </div>
       <p class="test-note" id="test-note" hidden>Modalità prova: la prenotazione non è stata inviata (Workflow 2 non ancora collegato).</p>
       <button type="button" class="btn-ghost" id="again">Nuova prenotazione</button>
     </section>
 
     <ul class="perks">
       <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Veniamo a casa tua</li>
-      <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Conferma via Mail/SMS</li>
+      <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Conferma immediata</li>
       <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Pagamento all’appuntamento</li>
     </ul>
   </main>
@@ -499,7 +520,7 @@ function render() {
   $('submit').disabled = m.length > 0;
   const hint = $('hint');
   hint.classList.remove('error');
-  hint.textContent = m.length ? `Mancano: ${m.join(', ')}.` : 'Ti confermiamo l’appuntamento via Mail/SMS.';
+  hint.textContent = m.length ? `Mancano: ${m.join(', ')}.` : 'Riceverai subito la conferma su questa pagina.';
 }
 
 function setCal(open) {
@@ -570,6 +591,7 @@ form.addEventListener('submit', async (e) => {
     $('sum-when').textContent = slotLabel();
     $('sum-where').textContent = payload.indirizzo;
     $('test-note').hidden = !!PRENOTA_URL;
+    preparaCalendario(payload);
     form.hidden = true;
     $('done').hidden = false;
   } catch (err) {
@@ -582,7 +604,109 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
+/* ---------- "Aggiungi al mio calendario" ---------- */
+let ultimoAppuntamento = null;
+
+// Converte data + ora di Roma nell'istante UTC corretto, qualunque sia il fuso del telefono del cliente
+function romaInUtc(dataIso, hhmm) {
+  const [y, mo, d] = dataIso.split('-').map(Number);
+  const [h, mi] = hhmm.split(':').map(Number);
+  const ipotesi = Date.UTC(y, mo - 1, d, h, mi);
+  const parti = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Rome', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+  }).formatToParts(new Date(ipotesi)).map((p) => [p.type, p.value]));
+  const comeRoma = Date.UTC(+parti.year, +parti.month - 1, +parti.day, +parti.hour, +parti.minute);
+  return new Date(ipotesi - (comeRoma - ipotesi));
+}
+
+const fmtUtc = (dt) => dt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');   // 20261120T080000Z
+const icsTesto = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const icsPiega = (riga) => {                       // righe ICS max 75 byte (lo standard le "piega")
+  const enc = new TextEncoder();
+  const out = [];
+  let pezzo = '', byte = 0;
+  for (const ch of riga) {
+    const n = enc.encode(ch).length;
+    if (byte + n > (out.length ? 74 : 75)) { out.push(pezzo); pezzo = ''; byte = 0; }
+    pezzo += ch; byte += n;
+  }
+  out.push(pezzo);
+  return out.join('\r\n ');
+};
+
+function preparaCalendario(p) {
+  const nomeAttivita = (document.querySelector('.brand-name')?.textContent || 'Barbiere').trim();
+  const telBarbiere = (document.querySelector('.call')?.getAttribute('href') || '').replace(/^tel:/, '');
+  const fine = p.ora_fine || p.ora_inizio;
+  const inizio = romaInUtc(p.data, p.ora_inizio);
+  const termine = romaInUtc(p.data, fine);
+  const maps = p.lat != null ? `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}` : '';
+
+  const righe = [`Taglio a domicilio con ${nomeAttivita}.`];
+  if (telBarbiere.replace(/\D/g, '').length >= 9) righe.push(`Per modifiche o disdette chiama il ${telBarbiere}.`);
+  if (maps) righe.push(`Posizione indicata: ${maps}`);
+  // In futuro qui aggiungeremo il link per disdire online.
+
+  ultimoAppuntamento = {
+    titolo: `Taglio a domicilio – ${nomeAttivita}`,
+    descrizione: righe.join('\n'),
+    luogo: p.indirizzo,
+    inizio, termine,
+    geo: p.lat != null ? `${p.lat};${p.lon}` : '',
+  };
+
+  const g = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: ultimoAppuntamento.titolo,
+    dates: `${fmtUtc(inizio)}/${fmtUtc(termine)}`,
+    details: ultimoAppuntamento.descrizione,
+    location: p.indirizzo,
+  });
+  $('cal-google').href = `https://calendar.google.com/calendar/render?${g}`;
+  $('add-cal').hidden = false;
+}
+
+function creaIcs(a) {
+  const righe = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Prenotazioni barbiere//IT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${fmtUtc(a.inizio)}-${Math.random().toString(36).slice(2)}@prenotazioni-barbiere`,
+    `DTSTAMP:${fmtUtc(new Date())}`,
+    `DTSTART:${fmtUtc(a.inizio)}`,
+    `DTEND:${fmtUtc(a.termine)}`,
+    `SUMMARY:${icsTesto(a.titolo)}`,
+    `LOCATION:${icsTesto(a.luogo)}`,
+    ...(a.geo ? [`GEO:${a.geo}`] : []),
+    `DESCRIPTION:${icsTesto(a.descrizione)}`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Domani arriva il barbiere', 'TRIGGER:-P1D', 'END:VALARM',
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Tra un’ora arriva il barbiere', 'TRIGGER:-PT1H', 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR',
+  ];
+  return righe.map(icsPiega).join('\r\n') + '\r\n';
+}
+
+$('cal-ics').addEventListener('click', () => {
+  if (!ultimoAppuntamento) return;
+  const ics = creaIcs(ultimoAppuntamento);
+  const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (iOS) {
+    // Su iPhone/iPad il file aperto direttamente mostra subito "Aggiungi al calendario"
+    window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'appuntamento-barbiere.ics';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
 $('again').addEventListener('click', () => {
+  $('add-cal').hidden = true;
+  ultimoAppuntamento = null;
   form.reset();
   requestId++;
   Object.assign(state, { date: null, slot: null, slots: null, loading: false, error: '', cliente: null, pin: null, vy: today.getFullYear(), vm: today.getMonth() });
