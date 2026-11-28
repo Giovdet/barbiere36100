@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Disdici appuntamento – Barber36100</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap">
+  <style>
+    :root {
+      --bg: #F5EFE6; --card: #FFFDF9; --ink: #1E1915; --muted: #5E544B; --line: #E2D8CA; --field: #D9CDBC;
+      --accent: #1F3A5F; --on-accent: #FFFDF9; --error: #9B2C24; --ok: #2F4A3A;
+      --serif: "Fraunces", Georgia, serif; --sans: "Inter", system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+    .page { min-height: 100vh; display: flex; flex-direction: column; }
+    .header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 20px clamp(16px, 4vw, 48px); border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+    .brand-logo { width: 48px; height: 48px; border-radius: 999px; border: 1px solid var(--line); background: #fff; display: block; }
+    .brand-name { display: block; font-family: var(--serif); font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+    .brand-sub { display: block; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: clamp(32px, 6vw, 72px) 16px 56px; }
+    .card { width: 100%; max-width: 520px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: clamp(24px, 4vw, 40px); display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; box-shadow: 0 1px 2px rgba(30,25,21,.04), 0 12px 32px rgba(30,25,21,.06); }
+    h1 { margin: 0; font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 4vw, 32px); line-height: 1.15; }
+    .msg { margin: 0; font-size: 16px; line-height: 1.55; color: var(--muted); }
+    .msg.error { color: var(--error); }
+    .icon { width: 56px; height: 56px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--ink); }
+    .icon.ok { background: var(--accent); color: var(--on-accent); }
+    .icon.warn { background: #F6E3DF; color: var(--error); }
+    .summary { width: 100%; border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 15px; margin: 0; }
+    .summary div { display: flex; justify-content: space-between; gap: 12px; }
+    .summary dt { color: var(--muted); }
+    .summary dd { margin: 0; font-weight: 600; text-align: right; }
+    .summary[hidden], .actions[hidden], [hidden] { display: none !important; }
+    .actions { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 20px; border-radius: 14px; font: 600 16px var(--sans); text-decoration: none; cursor: pointer; border: 1.5px solid var(--field); background: #fff; color: var(--ink); }
+    .btn:hover { border-color: var(--ink); }
+    .btn.danger { background: var(--error); border-color: var(--error); color: #fff; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    button:focus-visible, a:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--field); border-top-color: var(--ink); border-radius: 999px; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    footer { padding: 20px clamp(16px, 4vw, 48px); border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+    footer a { color: var(--ink); }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="header">
+    <a class="brand" href="index.html">
+      <img class="brand-logo" src="logo.png" alt="Logo" width="48" height="48">
+      <div>
+        <span class="brand-name">Barber36100</span>
+        <span class="brand-sub">Barbiere a domicilio</span>
+      </div>
+    </a>
+  </header>
+
+  <main>
+    <section class="card" aria-live="polite">
+      <div class="icon" id="icona"><div class="spinner" aria-hidden="true"></div></div>
+      <h1 id="titolo">Un momento…</h1>
+      <p class="msg" id="messaggio">Stiamo cercando il tuo appuntamento.</p>
+
+      <dl class="summary" id="riepilogo" hidden>
+        <div><dt>Quando</dt><dd id="r-quando"></dd></div>
+        <div><dt>Ora</dt><dd id="r-ora"></dd></div>
+        <div><dt>Dove</dt><dd id="r-dove"></dd></div>
+      </dl>
+
+      <div class="actions" id="azioni" hidden>
+        <button type="button" class="btn danger" id="conferma" hidden>Conferma disdetta</button>
+        <a class="btn primary" id="chiama" hidden>Chiama il barbiere</a>
+        <a class="btn" id="prenota" href="index.html" hidden>Prenota un nuovo appuntamento</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 Barber36100</span>
+    <span><a href="privacy.html">Privacy</a></span>
+  </footer>
+</div>
+
+<script>
+/* ================= CONFIGURAZIONE ================= */
+// Workflow 3 "Disdetta" – nodo Webhook POST con path "disdici"
+const DISDETTA_URL = 'https://giodet.app.n8n.cloud/webhook/disdici';
+// Numero del barbiere (senza spazi) e come mostrarlo
+const TEL_BARBIERE = '+393245322146';
+const TEL_MOSTRATO = '+39 324 532 2146';
+/* ================================================== */
+
+const $ = (id) => document.getElementById(id);
+const parametri = new URLSearchParams(location.search);
+const id = parametri.get('id') || '';
+const codice = parametri.get('c') || '';
+
+const ICONE = {
+  ok: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  calendario: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 15l6 0"/></svg>',
+  avviso: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>',
+};
+
+function mostra({ icona, tipoIcona = '', titolo, messaggio, errore = false, appuntamento = null, conferma = false, chiama = false, prenota = false }) {
+  $('icona').className = 'icon' + (tipoIcona ? ' ' + tipoIcona : '');
+  $('icona').innerHTML = icona;
+  $('titolo').textContent = titolo;
+  $('messaggio').textContent = messaggio;
+  $('messaggio').classList.toggle('error', errore);
+
+  $('riepilogo').hidden = !appuntamento;
+  if (appuntamento) {
+    $('r-quando').textContent = appuntamento.quando || '';
+    $('r-ora').textContent = appuntamento.ora || '';
+    $('r-dove').textContent = appuntamento.indirizzo || '';
+  }
+
+  $('conferma').hidden = !conferma;
+  $('chiama').hidden = !chiama;
+  $('prenota').hidden = !prenota;
+  $('azioni').hidden = !(conferma || chiama || prenota);
+}
+
+async function chiamaWorkflow(azione) {
+  const res = await fetch(DISDETTA_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, codice, azione }),
+  });
+  let json = {};
+  try { json = await res.json(); } catch { /* risposta senza JSON */ }
+  return { ok: res.ok, status: res.status, json };
+}
+
+function mostraEsito(json) {
+  const app = json.appuntamento || null;
+  switch (json.esito) {
+    case 'ok':
+      return mostra({ icona: ICONE.calendario, titolo: 'Vuoi disdire questo appuntamento?',
+        messaggio: 'Se confermi, l’orario tornerà disponibile per altri clienti.', appuntamento: app, conferma: true });
+    case 'troppo_tardi':
+      return mostra({ icona: ICONE.avviso, tipoIcona: 'warn', titolo: 'Non è più possibile disdire online',
+        messaggio: `Mancano meno di 24 ore all’appuntamento. Per disdire chiama il barbiere al ${TEL_MOSTRATO}.`, appuntamento: app, chiama: true });
+    case 'passato':
+      return mostra({ icona: ICONE.avviso, titolo: 'Appuntamento già passato',
+        messaggio: 'Questo appuntamento si è già svolto.', appuntamento: app, prenota: true });
+    case 'gia_disdetto':
+    case 'non_trovato':
+      return mostra({ icona: ICONE.avviso, titolo: 'Appuntamento non trovato',
+        messaggio: 'Questo appuntamento non esiste più: probabilmente è già stato disdetto.', prenota: true });
+    default: // non_valido o risposta inattesa
+      return mostra({ icona: ICONE.avviso, tipoIcona: 'warn', titolo: 'Link non valido',
+        messaggio: `Il link di disdetta non è corretto. Controlla di averlo copiato per intero, oppure chiama il barbiere al ${TEL_MOSTRATO}.`, errore: true, chiama: true });
+  }
+}
+
+async function verifica() {
+  if (!id || !/^[a-f0-9]{32}$/i.test(codice)) {
+    return mostraEsito({ esito: 'non_valido' });
+  }
+  try {
+    const { json } = await chiamaWorkflow('verifica');
+    mostraEsito(json);
+  } catch {
+    mostra({ icona: ICONE.avviso, tipoIcona: 'warn', titolo: 'Connessione non riuscita',
+      messaggio: 'Non riusciamo a contattare il sistema di prenotazione. Controlla la connessione e ricarica la pagina.', errore: true, chiama: true });
+  }
+}
+
+$('conferma').addEventListener('click', async () => {
+  const btn = $('conferma');
+  btn.disabled = true;
+  btn.textContent = 'Disdetta in corso…';
+  try {
+    const { ok, json } = await chiamaWorkflow('conferma');
+    if (ok && json.ok) {
+      mostra({ icona: ICONE.ok, tipoIcona: 'ok', titolo: 'Appuntamento disdetto',
+        messaggio: 'Grazie per averci avvisato. Se ti va, prenota un nuovo appuntamento quando vuoi.', prenota: true });
+    } else {
+      mostraEsito(json);
+    }
+  } catch {
+    mostra({ icona: ICONE.avviso, tipoIcona: 'warn', titolo: 'Disdetta non riuscita',
+      messaggio: `Non riusciamo a contattare il sistema. Riprova tra poco oppure chiama il barbiere al ${TEL_MOSTRATO}.`, errore: true, chiama: true });
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Conferma disdetta';
+  }
+});
+
+$('chiama').href = `tel:${TEL_BARBIERE}`;
+verifica();
+</script>
+</body>
+</html>
